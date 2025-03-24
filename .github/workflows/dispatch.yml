@@ -14,5 +14,7 @@ jobs:
       - name: Create Data File
         run: echo '${{ github.event.client_payload.data }}' > data.json
 
-      - name: Exeec program
+      - name: Exec program
+        env:
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
         run: ./start.sh
