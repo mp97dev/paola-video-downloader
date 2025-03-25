@@ -21,46 +21,55 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
 
 def download_instagram(driver: webdriver.Chrome, data: dict):
+    print("Open fastvideo")
     driver.get('https://fastvideosave.net/')
 
     # accept cookie banner if present
+    print("Accept cookie banner")
     consent_buttons = driver.find_elements(By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]')
     if len(consent_buttons) > 0:
         consent_buttons[0].click()
 
+    print("Insert link")
     input = driver.find_elements(By.XPATH, '//*[@id="form"]/input')
     if len(input) == 0:
         print("Could not find input field")
-        sys.exit()
+        sys.exit(1)
     
     input[0].send_keys(data.get('link'))
     input[0].submit()
     
+    print("Wait for download area", end=" ")
     download_area = driver.find_elements(By.CLASS_NAME, 'my-auto')
     while(len(download_area) == 0):
+        print(".", end="")
         sleep(2)
         download_area = driver.find_elements(By.CLASS_NAME, 'my-auto')
 
-
+    print("OK", end='\n')
     if len(download_area) == 0:
         print("Not found download area")
-        sys.exit()
+        sys.exit(1)
     
     buttons = download_area[0].find_elements(By.TAG_NAME, 'a')
     if len(buttons) == 0:
         print ("Not found download links")
-        sys.exit()
+        sys.exit(1)
 
     download_link = buttons[0].get_attribute('href')
 
     response = requests.get(download_link)
     
+    print("Download video")
     filename = data.get('title')
     
     with open(filename + '.mp4', 'wb') as f:
         f.write(response.content)
+    
+    sendVideo(filename + '.mp4')
 
 def sendVideo(filename: str):
+    print("Send video to Google Drive")
     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     try:
         drive_service = build('drive', 'v3', credentials=credentials)
@@ -72,7 +81,7 @@ def sendVideo(filename: str):
         }
         media = MediaFileUpload(filename, mimetype='video/mp4')
         file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        print('File ID: %s' % file.get('id'))
+        print('OK: File ID: %s' % file.get('id'))
 
     except HttpError as error:
         print(f"An error occurred: {error}")
@@ -82,7 +91,7 @@ def sendVideo(filename: str):
 
 # Set up options for the WebDriver
 options = Options()
-options.add_argument('--headless')
+# options.add_argument('--headless')
 options.add_argument('--no-sandbox')
 
 try:
@@ -96,7 +105,6 @@ with webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=
 
     with open("data.json", "r", encoding="utf-8") as f:
         content = f.read().strip()
-        print("data: " + content)
         
         # Parse the JSON string
         try:
