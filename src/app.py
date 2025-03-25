@@ -94,8 +94,9 @@ except OSError:
 # Set up the WebDriver using a context manager
 with webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options) as driver:
 
-    with open('data.json') as f:
-        print("data.json: ".join(f.readline(-1)))
+    with open('data.json', 'r', encoding='utf-8') as f:
+        print(f.read().strip())
+        
         data = json.load(f)
         link = data.get('link')
 
