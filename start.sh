@@ -1,17 +1,17 @@
 #!/bin/bash
 
-echo -e "\033[0;32mInstalling Firefox browser and geckodriver...\033[0m"
-sudo apt-get install -y firefox-geckodriver
-
-echo -e "\033[0;32mInstalling xattr package...\033[0m"
-sudo apt-get install -y xattr
-
 # start virtual environment
+print "[II] python init"
+
 python3 -m venv venv
 source venv/bin/activate
-
-# install dependencies
 pip3 install -r requirements.txt
 
+
 # run the application
+print "[II] start"
 python3 src/app.py
+
+print() {
+echo -e "\033[0;32m$1\033[0m"
+}
