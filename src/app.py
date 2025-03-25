@@ -36,6 +36,7 @@ def wait_for_element(driver, locator, timeout=60, condition=EC.presence_of_eleme
     :param condition: Expected condition (default: presence_of_element_located)
     :return: The WebElement if found, else raises TimeoutException
     """
+    print(driver.current_url)
     print(driver.page_source)
     return WebDriverWait(driver, timeout).until(condition(locator))
 
@@ -46,7 +47,7 @@ def download_instagram(driver: webdriver.Chrome, data: dict):
 
     # accept cookie banner if present
     print("Accept cookie banner")
-    consent_buttons = wait_for_element(driver, (By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]'))    
+    consent_buttons = wait_for_element(driver, (By.XPATH, "//button[contains(text(), 'Accept')]"))
     consent_buttons.click()
 
     print("Insert link")
