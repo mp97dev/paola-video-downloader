@@ -3,6 +3,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import json
 import sys
 from time import sleep
@@ -21,6 +23,10 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
 
 def download_instagram(driver: webdriver.Chrome, data: dict):
+
+    wait = WebDriverWait(driver, 10)
+
+
     print("Open fastvideo")
     driver.get('https://fastvideosave.net/')
     print(driver.title)
@@ -34,7 +40,8 @@ def download_instagram(driver: webdriver.Chrome, data: dict):
         print("Could not find consent buttons")
 
     print("Insert link")
-    input = driver.find_elements(By.XPATH, '//*[@id="form"]/input')
+    input = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="form"]/input')))
+
     if len(input) == 0:
         print("Could not find input field")
         sys.exit(1)
