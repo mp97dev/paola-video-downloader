@@ -2,7 +2,6 @@ name: Run Python Script
 
 on:
   repository_dispatch:
-    types: [run_python_script]
 
 jobs:
   run-script:
