@@ -1,7 +1,7 @@
 name: Run Python Script
 
 on:
-  repository_dispatch:
+  workflow_dispatch:
 
 jobs:
   run-script:
