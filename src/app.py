@@ -3,6 +3,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import json
 import sys
 from time import sleep
@@ -20,6 +22,19 @@ from googleapiclient.http import MediaFileUpload
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
 
+
+def wait_for_element(driver, locator, timeout=10, condition=EC.presence_of_element_located):
+    """
+    Waits for an element to meet a specific condition.
+
+    :param driver: Selenium WebDriver instance
+    :param locator: Tuple (By.<METHOD>, "locator string")
+    :param timeout: Time (seconds) to wait before timeout
+    :param condition: Expected condition (default: presence_of_element_located)
+    :return: The WebElement if found, else raises TimeoutException
+    """
+    return WebDriverWait(driver, timeout).until(condition(locator))
+
 def download_instagram(driver: webdriver.Chrome, data: dict):
     print("Open fastvideo")
     driver.get('https://fastvideosave.net/')
@@ -27,39 +42,18 @@ def download_instagram(driver: webdriver.Chrome, data: dict):
 
     # accept cookie banner if present
     print("Accept cookie banner")
-    consent_buttons = driver.find_elements(By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]')
-    if len(consent_buttons) > 0:
-        consent_buttons[0].click()
-    else:
-        print("Could not find consent buttons")
+    consent_buttons = wait_for_element(driver, (By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]'))    
+    consent_buttons.click()
 
     print("Insert link")
-    input = driver.find_elements(By.XPATH, '//*[@id="form"]/input')
-    if len(input) == 0:
-        print("Could not find input field")
-        sys.exit(1)
+    input = wait_for_element(driver, (By.XPATH, '//*[@id="form"]/input'))
     
-    input[0].send_keys(data.get('link'))
-    input[0].submit()
+    input.send_keys(data.get('link'))
+    input.submit()
     
     print("Wait for download area", end=" ")
-    download_area = driver.find_elements(By.CLASS_NAME, 'my-auto')
-    while(len(download_area) == 0):
-        print(".", end="")
-        sleep(2)
-        download_area = driver.find_elements(By.CLASS_NAME, 'my-auto')
-
-    print("OK", end='\n')
-    if len(download_area) == 0:
-        print("Not found download area")
-        sys.exit(1)
-    
-    buttons = download_area[0].find_elements(By.TAG_NAME, 'a')
-    if len(buttons) == 0:
-        print ("Not found download links")
-        sys.exit(1)
-
-    download_link = buttons[0].get_attribute('href')
+    button = wait_for_element(driver, (By.XPATH, '/html/body/div[1]/main/div[1]/div/div[3]/div/div[2]/a[2]'))
+    download_link = button.get_attribute('href')
 
     response = requests.get(download_link)
     
