@@ -89,7 +89,7 @@ try:
     f = open('data.txt', 'rb')
 except OSError:
     print("Could not open/read file data.txt")
-    sys.exit()
+    sys.exit(1)
 
 # Set up the WebDriver using a context manager
 with webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options) as driver:
