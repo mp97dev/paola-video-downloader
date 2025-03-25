@@ -29,6 +29,8 @@ def download_instagram(driver: webdriver.Chrome, data: dict):
     consent_buttons = driver.find_elements(By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]')
     if len(consent_buttons) > 0:
         consent_buttons[0].click()
+    else:
+        print("Could not find consent buttons")
 
     print("Insert link")
     input = driver.find_elements(By.XPATH, '//*[@id="form"]/input')
