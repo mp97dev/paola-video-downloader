@@ -91,7 +91,7 @@ def sendVideo(filename: str):
 
 # Set up options for the WebDriver
 options = Options()
-# options.add_argument('--headless')
+options.add_argument('--headless')
 options.add_argument('--no-sandbox')
 
 try:
