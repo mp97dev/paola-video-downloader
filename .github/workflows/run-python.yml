@@ -12,14 +12,14 @@ jobs:
   run-script:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: 🛎️ Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create Data File
+      - name: 📝 Create Data File
         run: echo '${{ github.event.inputs.data }}' > data.json  # Save input data
 
+      - name: ⚙️ Exec program
+        run: ./install.sh
 
-      - name: Exec program
-        env:
-          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
-        run: ./start.sh
+      - name: 🐍 Run Python Script
+        run: python3 src/app.py
