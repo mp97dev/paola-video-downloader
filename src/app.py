@@ -94,8 +94,10 @@ def sendVideo(filename: str):
 
 # Set up options for the WebDriver
 options = Options()
-options.add_argument('--headless')
-options.add_argument('--no-sandbox')
+options.add_argument("--headless")
+options.add_argument("--disable-gpu")
+options.add_argument("--no-sandbox")  # Important for GitHub Actions
+options.add_argument("--disable-dev-shm-usage")  # Helps with shared memory issues
 
 try:
     f = open('data.json', 'rb')
