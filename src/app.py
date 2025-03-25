@@ -23,6 +23,7 @@ SERVICE_ACCOUNT_FILE = "./auth.json"
 def download_instagram(driver: webdriver.Chrome, data: dict):
     print("Open fastvideo")
     driver.get('https://fastvideosave.net/')
+    print(driver.title)
 
     # accept cookie banner if present
     print("Accept cookie banner")
