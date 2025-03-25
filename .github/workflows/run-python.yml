@@ -2,6 +2,11 @@ name: Run Python Script
 
 on:
   workflow_dispatch:
+    inputs:
+        data:
+          description: "JSON stringified of rowdata"
+          required: true
+          type: string  # Incoming data will be a JSON string
 
 jobs:
   run-script:
@@ -11,7 +16,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create Data File
-        run: echo '${{ github.event.client_payload.data }}' > data.json
+        run: echo '${{ github.event.inputs.data }}' > data.json  # Save input data
+
 
       - name: Exec program
         env:
