@@ -3,10 +3,14 @@ name: Run Python Script
 on:
   workflow_dispatch:
     inputs:
-        data:
-          description: "JSON stringified of rowdata"
+        title:
+          description: "Title of the video"
           required: true
-          type: string  # Incoming data will be a JSON string
+          type: string
+        link:
+          description: "Link to the video"
+          required: true
+          type: string 
 
 jobs:
   run-script:
@@ -17,7 +21,7 @@ jobs:
 
       - name: 📝 Create Data File
         run: |
-          echo "${{ github.event.inputs.data }}" > data.json 
+          echo '{"title":"${{github.event.inputs.title }}","link":"${{github.event.inputs.link}}"}' > data.json 
 
       - name: ⚙️ Exec program
         run: ./install.sh
