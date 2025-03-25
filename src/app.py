@@ -94,10 +94,18 @@ except OSError:
 # Set up the WebDriver using a context manager
 with webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options) as driver:
 
-    with open('data.json', 'r', encoding='utf-8') as f:
-        print(f.read().strip())
+    with open("data.json", "r", encoding="utf-8") as f:
+        content = f.read().strip()
+        print("data: " + content)
         
-        data = json.load(f)
+        # Parse the JSON string
+        try:
+            data = json.loads(content)
+            print("Parsed JSON:", data)
+        except json.JSONDecodeError as e:
+            print("Error parsing JSON:", e)
+            sys.exit(1)
+
         link = data.get('link')
 
         if 'instagram' in link:
