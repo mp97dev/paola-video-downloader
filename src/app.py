@@ -36,6 +36,7 @@ def wait_for_element(driver, locator, timeout=60, condition=EC.presence_of_eleme
     :param condition: Expected condition (default: presence_of_element_located)
     :return: The WebElement if found, else raises TimeoutException
     """
+    print(driver.page_source)
     return WebDriverWait(driver, timeout).until(condition(locator))
 
 def download_instagram(driver: webdriver.Chrome, data: dict):
