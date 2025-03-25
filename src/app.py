@@ -23,7 +23,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
 
 
-def wait_for_element(driver, locator, timeout=10, condition=EC.presence_of_element_located):
+def wait_for_element(driver, locator, timeout=60, condition=EC.presence_of_element_located):
     """
     Waits for an element to meet a specific condition.
 
