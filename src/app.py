@@ -86,16 +86,16 @@ options.add_argument('--headless')
 options.add_argument('--no-sandbox')
 
 try:
-    f = open('data.txt', 'rb')
+    f = open('data.json', 'rb')
 except OSError:
-    print("Could not open/read file data.txt")
+    print("Could not open/read file data.json")
     sys.exit(1)
 
 # Set up the WebDriver using a context manager
 with webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options) as driver:
 
-    with open('data.txt') as f:
-        print("data.txt: ".join(f.readline(-1)))
+    with open('data.json') as f:
+        print("data.json: ".join(f.readline(-1)))
         data = json.load(f)
         link = data.get('link')
 

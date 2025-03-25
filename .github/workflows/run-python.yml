@@ -18,10 +18,7 @@ jobs:
       - name: 📝 Create Data File
         run: |
           echo '${{ github.event.inputs.data }}';
-          echo "${{ github.event.inputs.data }}" > data.txt 
-
-      - name: test
-        run: cat data.json
+          echo "${{ github.event.inputs.data }}" > data.json 
 
       - name: ⚙️ Exec program
         run: ./install.sh
