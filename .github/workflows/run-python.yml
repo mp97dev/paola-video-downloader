@@ -21,9 +21,9 @@ jobs:
 
       - name: 📝 Create Data File
         run: |
-          echo '{"title":"${{github.event.inputs.title }}","link":"${{github.event.inputs.link}}"}' > data.json 
+          echo '{"title":"${{github.event.inputs.title }}","link":"${{github.event.inputs.link}}"}' > data.json
 
-      - name: ⚙️ Exec program
+      - name: ⚙️ Run install
         run: ./install.sh
 
       - name: 🐍 Run Python Script
