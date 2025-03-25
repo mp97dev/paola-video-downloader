@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 📝 Create Data File
-        run: echo '${{ github.event.inputs.data }}' > data.txt  # Save input data
+        run: echo '{ "data": "${{ github.event.inputs.data }}" }' > data.json  # Save input data
 
       - name: ⚙️ Exec program
         run: ./install.sh
