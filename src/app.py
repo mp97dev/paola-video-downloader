@@ -46,8 +46,11 @@ def download_instagram(driver: webdriver.Chrome, data: dict):
 
     # accept cookie banner if present
     print("Accept cookie banner")
-    consent_buttons = wait_for_element(driver, (By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]'))    
-    consent_buttons.click()
+    try:
+        consent_buttons = wait_for_element(driver, (By.XPATH, '/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]'))    
+        consent_buttons.click()
+    except:
+        print("No cookie banner")
 
     print("Insert link")
     input = wait_for_element(driver, (By.XPATH, '//*[@id="form"]/input'))
