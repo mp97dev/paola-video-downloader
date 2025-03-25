@@ -18,6 +18,9 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
@@ -92,6 +95,8 @@ options.add_argument("--headless")
 options.add_argument("--disable-gpu")
 options.add_argument("--no-sandbox")  # Important for GitHub Actions
 options.add_argument("--disable-dev-shm-usage")  # Helps with shared memory issues
+options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+options.add_argument("start-maximized")
 
 try:
     f = open('data.json', 'rb')
@@ -101,7 +106,8 @@ except OSError:
 
 # Set up the WebDriver using a context manager
 with webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options) as driver:
-    driver.implicitly_wait(10)
+    driver.set_page_load_timeout(60)  # 60s timeout
+    driver.implicitly_wait(10)  # Waits 10s for elements to appear
 
     with open("data.json", "r", encoding="utf-8") as f:
         content = f.read().strip()
