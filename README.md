@@ -20,7 +20,7 @@ This project automates the process of downloading videos from social media platf
 Before using this project, ensure you have the following:
 
 ### System Requirements
-- Python 3.7 or higher
+- Python 3.8 or higher (Python 3.7 reached end-of-life in June 2023)
 - Google Chrome browser (for local execution)
 - Internet connection
 
@@ -44,10 +44,12 @@ Before using this project, ensure you have the following:
    ./install.sh
    ```
    
+   **Note**: The install.sh script uses the deprecated chromedriver.storage.googleapis.com endpoint. Since this project uses `webdriver-manager` (included in requirements.txt), ChromeDriver will be automatically downloaded and managed when you run the script. If the install.sh script fails to install ChromeDriver, you can skip that step as webdriver-manager will handle it automatically.
+   
    This script will:
    - Update system packages
-   - Install Google Chrome Stable
-   - Install ChromeDriver
+   - Install Google Chrome Stable (requires Chrome in apt repositories)
+   - Attempt to install ChromeDriver (optional, as webdriver-manager handles this)
    - Create a Python virtual environment
    - Install all required Python dependencies
 
@@ -86,8 +88,11 @@ Before using this project, ensure you have the following:
 
 1. Create a folder in Google Drive where videos will be uploaded
 2. Share the folder with the service account email (found in `auth.json`)
-3. Get the folder ID from the URL (e.g., `1j_mqg56mxnLPU6bI7UP5KebxN6NEkFZ6`)
-4. Update the `parents` field in `src/app.py` (line 84) with your folder ID:
+3. Get the folder ID from the URL (e.g., the alphanumeric string after `/folders/` in the URL)
+4. Update the folder ID in `src/app.py`:
+   - Open `src/app.py` and locate the `sendVideo()` function
+   - Find the `file_metadata` dictionary
+   - Update the `'parents'` field with your folder ID:
    ```python
    'parents': ['YOUR_FOLDER_ID_HERE']
    ```
@@ -147,9 +152,17 @@ You can trigger the download workflow remotely:
 
 The workflow will execute automatically in GitHub's infrastructure and upload the video to Google Drive.
 
-**Note**: For GitHub Actions to work, you must add the `auth.json` content as a repository secret:
+**Note**: For GitHub Actions to work, you must configure the `auth.json` credentials as a repository secret:
+
 1. Go to Settings > Secrets and variables > Actions
-2. Add the service account JSON as a secret (you may need to adapt the workflow to use this secret)
+2. Create a new secret (e.g., named `GOOGLE_SERVICE_ACCOUNT`)
+3. Paste the entire contents of your `auth.json` file as the secret value
+4. Update the workflow file (`.github/workflows/run-python.yml`) to create the auth.json file from the secret:
+   ```yaml
+   - name: Create auth.json from secret
+     run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT }}' > auth.json
+   ```
+   Add this step before the "Run Python Script" step in the workflow.
 
 ## 📁 Project Structure
 
@@ -281,11 +294,19 @@ Currently, the tool processes one video at a time. To process multiple videos, y
 **Issue**: Timeout waiting for elements
 - **Solution**:
   - Check your internet connection
-  - The third-party site (fastvideosave.net) might have changed its structure
+  - The third-party site (fastvideosave.net) might have changed its structure or URL
+  - If the service URL changes, update the URL in the `download_instagram()` function in `src/app.py`
   - Increase timeout values in the code
+  - Inspect the page structure to update XPath selectors if needed
 
 **Issue**: Cookie banner not handled
-- **Solution**: The script includes cookie handling, but if it fails, check the XPath selector for the consent button
+- **Solution**: 
+  - The script includes cookie handling for fastvideosave.net
+  - If it fails, the XPath selector for the consent button may have changed
+  - In `src/app.py`, locate the `download_instagram()` function around line 50
+  - Look for the XPath selector: `'/html/body/div[2]/div[2]/div[2]/div[2]/div[2]/button[1]'`
+  - Inspect the website in your browser to find the updated selector
+  - Update the XPath in the code accordingly
 
 ### Debug Mode
 
