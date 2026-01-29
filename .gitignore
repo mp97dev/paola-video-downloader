@@ -3,3 +3,15 @@ data.txt
 venv/
 a.sh
 auth.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+downloads/
+test_output/
