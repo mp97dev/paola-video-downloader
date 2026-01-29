@@ -85,8 +85,8 @@ class TestFileUtils(unittest.TestCase):
     
     def test_get_file_hash(self):
         """Test file hash calculation."""
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
-            f.write('test content')
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False) as f:
+            f.write(b'test content')
             temp_path = f.name
         
         try:

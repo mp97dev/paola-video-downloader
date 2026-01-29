@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
+# Google Drive folder ID - can be overridden with GDRIVE_FOLDER_ID environment variable
+DEFAULT_GDRIVE_FOLDER_ID = '1j_mqg56mxnLPU6bI7UP5KebxN6NEkFZ6'
 
 
 def sendVideo(filename: str):
@@ -33,6 +35,9 @@ def sendVideo(filename: str):
     """
     logger.info(f"Uploading video to Google Drive: {filename}")
     
+    # Get folder ID from environment or use default
+    folder_id = os.environ.get('GDRIVE_FOLDER_ID', DEFAULT_GDRIVE_FOLDER_ID)
+    
     try:
         credentials = service_account.Credentials.from_service_account_file(
             SERVICE_ACCOUNT_FILE, scopes=SCOPES
@@ -42,7 +47,7 @@ def sendVideo(filename: str):
         file_metadata = {
             'name': os.path.basename(filename),
             'mimeType': 'video/mp4',
-            'parents': ['1j_mqg56mxnLPU6bI7UP5KebxN6NEkFZ6']
+            'parents': [folder_id]
         }
         media = MediaFileUpload(filename, mimetype='video/mp4')
         file = drive_service.files().create(
@@ -85,6 +90,18 @@ def main():
     if not url:
         logger.error("No 'link' field found in data.json")
         print("Error: No 'link' field found in data.json")
+        sys.exit(1)
+    
+    # Basic URL validation
+    if not isinstance(url, str) or not url.strip():
+        logger.error("Invalid URL: URL must be a non-empty string")
+        print("Error: Invalid URL format")
+        sys.exit(1)
+    
+    url = url.strip()
+    if not url.startswith(('http://', 'https://')):
+        logger.error(f"Invalid URL format: {url}")
+        print(f"Error: URL must start with http:// or https://")
         sys.exit(1)
     
     if not title:

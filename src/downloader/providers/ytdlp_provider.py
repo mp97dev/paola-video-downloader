@@ -137,7 +137,6 @@ class YtDlpProvider(BaseProvider):
             'retries': self.max_retries,
             'fragment_retries': self.max_retries,
             'http_chunk_size': 10485760,  # 10MB chunks
-            'nocheckcertificate': True,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
         

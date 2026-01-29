@@ -453,7 +453,9 @@ for url in urls:
 - **Solution**: 
   - Verify `auth.json` is valid and has correct permissions
   - Ensure the Google Drive folder is shared with the service account email
-  - Check that the folder ID in `src/app.py` is correct (line 84)
+  - Check that the folder ID is set correctly:
+    - Default folder ID is in `src/app.py` (line 29)
+    - Can be overridden with `GDRIVE_FOLDER_ID` environment variable
 
 **Issue**: Download fails with "Unsupported URL"
 - **Solution**:

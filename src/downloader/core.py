@@ -113,8 +113,7 @@ class VideoDownloader:
                 if existing:
                     error_msg = f"File already exists: {existing}"
                     logger.warning(error_msg)
-                    if self.prevent_duplicates:
-                        raise DuplicateFileError(error_msg)
+                    raise DuplicateFileError(error_msg)
         
         # Download the video
         try:
