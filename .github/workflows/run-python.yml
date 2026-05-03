@@ -28,11 +28,17 @@ jobs:
           " "${{ github.event.inputs.title }}" "${{ github.event.inputs.link }}" > data.json
 
       - name: 🔑 Create Google Credentials File
-        run: echo '${{ secrets.GDRIVE_CREDENTIALS }}' > auth.json
+        env:
+          GDRIVE_CREDENTIALS: ${{ secrets.GDRIVE_CREDENTIALS }}
+        run: echo "$GDRIVE_CREDENTIALS" > auth.json
 
       - name: 🍪 Setup Cookies
-        if: ${{ secrets.COOKIES != '' }}
-        run: echo '${{ secrets.COOKIES }}' | base64 -d > cookies.txt
+        env:
+          COOKIES_B64: ${{ secrets.COOKIES }}
+        run: |
+          if [ -n "$COOKIES_B64" ]; then
+            echo "$COOKIES_B64" | base64 -d > cookies.txt
+          fi
 
       - name: ⚙️ Run install
         run: ./install.sh
