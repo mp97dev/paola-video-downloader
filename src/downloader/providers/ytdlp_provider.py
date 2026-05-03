@@ -8,7 +8,7 @@ import time
 
 from .base import BaseProvider
 from ..exceptions import ExtractionError, DownloadError, NetworkError
-from ..utils import sanitize_filename, ensure_extension
+from ..utils import sanitize_filename
 
 try:
     import yt_dlp
@@ -98,40 +98,32 @@ class YtDlpProvider(BaseProvider):
     def download(self, url: str, output_path: str = '.', title: Optional[str] = None) -> str:
         """
         Download video using yt-dlp with retry logic.
-        
+
         Args:
             url: The video URL
             output_path: Directory to save the video
             title: Optional custom title for the file
-            
+
         Returns:
             Path to the downloaded file
-            
+
         Raises:
             DownloadError: If download fails after all retries
         """
+        import glob
+
         # Ensure output directory exists
         os.makedirs(output_path, exist_ok=True)
-        
-        # Get video info first to determine extension
-        try:
-            info = self.extract_info(url)
-            ext = info.get('ext', 'mp4')
-            video_title = title if title else info.get('title', 'video')
-        except ExtractionError as e:
-            logger.warning(f"Could not extract info, using defaults: {e}")
-            ext = 'mp4'
-            video_title = title if title else 'video'
-        
-        # Sanitize filename
-        safe_title = sanitize_filename(video_title)
-        safe_title = ensure_extension(safe_title, ext)
-        output_file = os.path.join(output_path, safe_title)
-        
+
+        # Sanitize filename — no extension added here; yt-dlp fills it via %(ext)s
+        safe_title = sanitize_filename(title if title else 'video')
+        output_base = os.path.join(output_path, safe_title)
+
         # Configure yt-dlp options
         ydl_opts = {
-            'format': 'best',  # Download best quality
-            'outtmpl': output_file,
+            'format': 'best[ext=mp4]/best',
+            'outtmpl': output_base + '.%(ext)s',
+            'merge_output_format': 'mp4',
             'quiet': False,
             'no_warnings': False,
             'retries': self.max_retries,
@@ -139,41 +131,42 @@ class YtDlpProvider(BaseProvider):
             'http_chunk_size': 10485760,  # 10MB chunks
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         }
-        
+
+        # Optional cookies file for platforms that require authentication (e.g. Instagram, Facebook)
+        cookies_file = os.environ.get('COOKIES_FILE')
+        if cookies_file and os.path.exists(cookies_file):
+            ydl_opts['cookiefile'] = cookies_file
+            logger.info(f"Using cookies file: {cookies_file}")
+
         # Retry logic with exponential backoff
         last_error = None
         for attempt in range(self.max_retries):
             try:
                 logger.info(f"Download attempt {attempt + 1}/{self.max_retries} for {url}")
-                
+
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
-                
-                # Check if file was created
-                if os.path.exists(output_file):
-                    logger.info(f"Successfully downloaded to {output_file}")
-                    return output_file
-                else:
-                    # yt-dlp may have added extension, try to find the file
-                    for possible_ext in ['mp4', 'webm', 'mkv', 'm4a']:
-                        base = os.path.splitext(output_file)[0]
-                        possible_file = f"{base}.{possible_ext}"
-                        if os.path.exists(possible_file):
-                            logger.info(f"Successfully downloaded to {possible_file}")
-                            return possible_file
-                    
-                    raise DownloadError("Download completed but file not found")
-                    
+
+                # Find the file yt-dlp created (it sets the extension)
+                matches = glob.glob(output_base + '.*')
+                if matches:
+                    filepath = matches[0]
+                    logger.info(f"Successfully downloaded to {filepath}")
+                    return filepath
+
+                raise DownloadError("Download completed but file not found")
+
+            except DownloadError:
+                raise
             except Exception as e:
                 last_error = e
                 logger.warning(f"Attempt {attempt + 1} failed: {e}")
-                
+
                 if attempt < self.max_retries - 1:
-                    # Exponential backoff
                     delay = self.retry_delay * (2 ** attempt)
                     logger.info(f"Retrying in {delay} seconds...")
                     time.sleep(delay)
-        
+
         # All retries failed
         error_msg = f"Failed to download after {self.max_retries} attempts: {last_error}"
         logger.error(error_msg)
