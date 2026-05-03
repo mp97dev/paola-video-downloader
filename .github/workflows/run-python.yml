@@ -10,7 +10,7 @@ on:
         link:
           description: "Link to the video"
           required: true
-          type: string 
+          type: string
 
 jobs:
   run-script:
@@ -21,12 +21,23 @@ jobs:
 
       - name: 📝 Create Data File
         run: |
-          echo '{"title":"${{github.event.inputs.title }}","link":"${{github.event.inputs.link}}"}' > data.json
+          python3 -c "
+          import json, sys
+          data = {'title': sys.argv[1], 'link': sys.argv[2]}
+          print(json.dumps(data))
+          " "${{ github.event.inputs.title }}" "${{ github.event.inputs.link }}" > data.json
+
+      - name: 🔑 Create Google Credentials File
+        run: echo '${{ secrets.GDRIVE_CREDENTIALS }}' > auth.json
+
+      - name: 🍪 Setup Cookies
+        if: ${{ secrets.COOKIES != '' }}
+        run: echo '${{ secrets.COOKIES }}' | base64 -d > cookies.txt
 
       - name: ⚙️ Run install
         run: ./install.sh
 
       - name: 🐍 Run Python Script
         env:
-          DEBUG: "selenium:*,requests:*"
-        run: source venv/bin/activate && python3 src/app.py
+          COOKIES_FILE: cookies.txt
+        run: venv/bin/python3 src/app.py
