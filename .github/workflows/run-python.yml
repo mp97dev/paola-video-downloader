@@ -33,10 +33,12 @@ jobs:
         run: echo "$GDRIVE_CREDENTIALS" > auth.json
 
       - name: 🍪 Setup Cookies
-        if: ${{ secrets.COOKIES != '' }}
         env:
           COOKIES_B64: ${{ secrets.COOKIES }}
-        run: echo "$COOKIES_B64" | base64 -d > cookies.txt
+        run: |
+          if [ -n "$COOKIES_B64" ]; then
+            echo "$COOKIES_B64" | base64 -d > cookies.txt
+          fi
 
       - name: ⚙️ Run install
         run: ./install.sh
