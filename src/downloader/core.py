@@ -5,7 +5,12 @@ import os
 from typing import List, Optional, Dict
 
 from .providers import BaseProvider, YtDlpProvider
-from .exceptions import UnsupportedPlatformError, DownloadError, DuplicateFileError
+from .exceptions import (
+    UnsupportedPlatformError,
+    DownloadError,
+    DuplicateFileError,
+    AuthenticationRequiredError,
+)
 from .utils import check_duplicate, sanitize_filename
 
 logger = logging.getLogger(__name__)
@@ -127,7 +132,11 @@ class VideoDownloader:
             
             logger.info(f"Download successful: {filepath}")
             return result
-            
+
+        except AuthenticationRequiredError:
+            # Propagate: this needs fresh cookies, and callers must be able to tell
+            # it apart from a recoverable download failure.
+            raise
         except Exception as e:
             error_msg = f"Download failed: {e}"
             logger.error(error_msg)

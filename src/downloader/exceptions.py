@@ -24,3 +24,8 @@ class DuplicateFileError(DownloadError):
 class NetworkError(DownloadError):
     """Raised when network-related issues occur."""
     pass
+
+
+class AuthenticationRequiredError(DownloadError):
+    """Raised when the platform refuses anonymous access (login or rate limit)."""
+    pass

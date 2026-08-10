@@ -10,8 +10,13 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 
 # Import the new modular downloader
-from downloader import VideoDownloader
-from downloader.exceptions import DownloadError, UnsupportedPlatformError, DuplicateFileError
+from downloader import VideoDownloader, __version__
+from downloader.exceptions import (
+    DownloadError,
+    UnsupportedPlatformError,
+    DuplicateFileError,
+    AuthenticationRequiredError,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +24,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Exit codes. The GitHub Actions workflow retries on a yt-dlp nightly build for
+# 2 and 3, and fails immediately on 1 — so these values are a contract with
+# .github/workflows/run-python.yml. See README "Exit codes".
+EXIT_OK = 0
+EXIT_ERROR = 1              # bad input, config, or upload failure — yt-dlp can't help
+EXIT_STALE_EXTRACTOR = 2    # download broke; a newer yt-dlp may already fix it
+EXIT_AUTH_REQUIRED = 3      # platform refused anonymous access; cookies likely needed
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
 SERVICE_ACCOUNT_FILE = "./auth.json"
@@ -69,6 +82,8 @@ def sendVideo(filename: str):
 
 def main():
     """Main application entry point."""
+    logger.info(f"paola-video-downloader v{__version__}")
+
     # Load video data
     try:
         with open('data.json', 'r', encoding='utf-8') as f:
@@ -78,11 +93,11 @@ def main():
     except OSError as e:
         logger.error("Could not open/read file data.json")
         print(f"Error: Could not open/read file data.json: {e}")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     except json.JSONDecodeError as e:
         logger.error(f"Error parsing JSON: {e}")
         print(f"Error parsing JSON: {e}")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
 
     url = data.get('link')
     title = data.get('title')
@@ -90,19 +105,19 @@ def main():
     if not url:
         logger.error("No 'link' field found in data.json")
         print("Error: No 'link' field found in data.json")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     
     # Basic URL validation
     if not isinstance(url, str) or not url.strip():
         logger.error("Invalid URL: URL must be a non-empty string")
         print("Error: Invalid URL format")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     
     url = url.strip()
     if not url.startswith(('http://', 'https://')):
         logger.error(f"Invalid URL format: {url}")
         print(f"Error: URL must start with http:// or https://")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     
     if not title:
         logger.warning("No 'title' field found in data.json, using default")
@@ -132,29 +147,37 @@ def main():
             if file_id:
                 logger.info("Video successfully uploaded to Google Drive")
             else:
-                logger.warning("Video download succeeded but upload failed")
+                # Failing loudly here matters: without it the job reports success
+                # while nothing ever reached Drive.
+                logger.error("Video downloaded but the Google Drive upload failed")
+                print("Error: download succeeded but the Google Drive upload failed")
+                sys.exit(EXIT_ERROR)
         else:
             error = result.get('error', 'Unknown error')
             logger.error(f"Download failed: {error}")
             print(f"Error: Download failed: {error}")
-            sys.exit(1)
-            
+            sys.exit(EXIT_STALE_EXTRACTOR)
+
+    except AuthenticationRequiredError as e:
+        logger.error(f"Authentication required: {e}")
+        print(f"Error: {e}")
+        sys.exit(EXIT_AUTH_REQUIRED)
     except UnsupportedPlatformError as e:
         logger.error(f"Unsupported platform: {e}")
         print(f"Error: {e}")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     except DuplicateFileError as e:
         logger.error(f"Duplicate file: {e}")
         print(f"Error: {e}")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
     except DownloadError as e:
         logger.error(f"Download error: {e}")
         print(f"Error: {e}")
-        sys.exit(1)
+        sys.exit(EXIT_STALE_EXTRACTOR)
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         print(f"Unexpected error: {e}")
-        sys.exit(1)
+        sys.exit(EXIT_ERROR)
 
 
 if __name__ == "__main__":

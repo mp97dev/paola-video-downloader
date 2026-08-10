@@ -15,3 +15,10 @@ dist/
 build/
 downloads/
 test_output/
+
+# Secrets materialised at runtime
+cookies.txt
+
+# Downloaded media and leftovers from the old Selenium setup
+*.mp4
+chromedriver_linux64.zip
