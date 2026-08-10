@@ -44,6 +44,31 @@ jobs:
         run: ./install.sh
 
       - name: 🐍 Run Python Script
+        id: download
         env:
           COOKIES_FILE: cookies.txt
-        run: venv/bin/python3 src/app.py
+        run: |
+          set +e
+          venv/bin/python3 src/app.py
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+
+          # Codes 2 and 3 are download-side failures: swallow them here so the nightly
+          # retry below gets a turn. Code 3 (cookies) is included on purpose — Instagram
+          # returns the same "empty media response" for a rate limit, a deleted post and
+          # a broken extractor, so a nightly attempt is worth ~20s before giving up.
+          # Code 1 (bad input, upload failure) fails the job now: yt-dlp cannot help.
+          if [ "$code" -ne 0 ] && [ "$code" -ne 2 ] && [ "$code" -ne 3 ]; then
+            exit "$code"
+          fi
+
+      - name: 🌙 Retry with yt-dlp nightly
+        if: steps.download.outputs.exit_code == '2' || steps.download.outputs.exit_code == '3'
+        env:
+          COOKIES_FILE: cookies.txt
+        run: |
+          echo "[II] stable yt-dlp failed; retrying with the nightly build"
+          venv/bin/pip install -U --pre "yt-dlp[default]"
+          venv/bin/python3 -m yt_dlp --version
+          venv/bin/python3 src/app.py

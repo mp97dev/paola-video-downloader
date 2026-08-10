@@ -215,11 +215,17 @@ paola-video-downloader/
 ├── tests/                           # Unit tests
 │   ├── __init__.py
 │   ├── test_downloader.py
-│   └── test_file_utils.py
+│   ├── test_file_utils.py
+│   └── test_ytdlp_provider.py
+├── scripts/
+│   ├── git-hooks/
+│   │   └── pre-commit               # Auto-bumps the patch version
+│   └── install-hooks.sh             # Points git at scripts/git-hooks
 ├── examples.py                      # Usage examples
 ├── .gitignore                       # Git ignore rules
 ├── install.sh                       # Installation script
 ├── requirements.txt                 # Python dependencies
+├── VERSION                          # MAJOR.MINOR.PATCH project version
 └── README.md                        # This documentation
 ```
 
@@ -463,6 +469,18 @@ for url in urls:
   - Check if the platform is supported by yt-dlp
   - Try the URL manually in a browser first
 
+**Issue**: `could not be downloaded anonymously` / "login required" / "rate-limit reached"
+- **Cause**: The platform (typically Instagram) refuses anonymous requests. This is much
+  more likely from GitHub Actions runners than from your own machine, because datacenter
+  IP ranges are aggressively rate-limited.
+- **Solution**: Supply cookies from a logged-in browser session:
+  1. Export cookies in **Netscape format** (e.g. a browser extension) to `cookies.txt`
+  2. Locally: `COOKIES_FILE=cookies.txt venv/bin/python3 src/app.py`
+  3. In CI: `base64 -w0 cookies.txt` and store the result as the `COOKIES` repository
+     secret — the workflow decodes it and sets `COOKIES_FILE` automatically
+- **Note**: The download is *not* retried on this error, since retrying never helps.
+  Cookies expire, so a workflow that suddenly starts failing usually needs a refreshed secret.
+
 **Issue**: Download fails with network error
 - **Solution**:
   - Check your internet connection
@@ -493,6 +511,85 @@ The script runs with detailed logging. Check the console output for information:
 To increase logging verbosity, modify the logging level in `src/app.py`:
 ```python
 logging.basicConfig(level=logging.DEBUG)  # More verbose
+```
+
+## 🌙 yt-dlp versions and the nightly fallback
+
+`requirements.txt` pins `yt-dlp>=2024.12.0`, and the workflow builds a fresh venv with no
+pip cache — so **every run installs the newest stable yt-dlp automatically**. There is
+nothing to bump.
+
+Stable releases are infrequent, though, while extractor fixes land in nightly builds every
+few days. When a platform changes its site, the fix is typically available on nightly weeks
+before it reaches stable. So the workflow retries on nightly when a download fails:
+
+```
+🐍 Run Python Script        → stable yt-dlp
+🌙 Retry with yt-dlp nightly → pip install -U --pre "yt-dlp[default]", then re-run
+```
+
+The retry only fires for download-side failures. Bad input, a malformed `data.json`, or a
+failed Google Drive upload fail the job immediately, since a newer yt-dlp cannot help.
+
+To reproduce the fallback locally:
+
+```bash
+venv/bin/pip install -U --pre "yt-dlp[default]"
+venv/bin/python3 src/app.py
+```
+
+### Exit codes
+
+`src/app.py` exits with a code describing *why* it failed. The workflow keys its retry off
+these, so treat them as a contract:
+
+| Code | Meaning | Nightly retry? |
+|------|---------|----------------|
+| `0` | Downloaded and uploaded successfully | — |
+| `1` | Bad input, config error, or Google Drive upload failure | No |
+| `2` | Download failed — a newer yt-dlp may already fix it | **Yes** |
+| `3` | Platform refused anonymous access; cookies likely needed | **Yes** |
+
+Code `3` retries on purpose: Instagram returns the same "empty media response" for a rate
+limit, a deleted post, and a broken extractor, so it is worth ~20 seconds to rule out a
+stale extractor before asking you to refresh the `COOKIES` secret.
+
+## 🔖 Versioning
+
+The project version lives in the `VERSION` file at the repository root, in
+`MAJOR.MINOR.PATCH` form. It is exposed to Python as `downloader.__version__` and logged
+on every run, so CI output identifies exactly which version produced it.
+
+### Automatic patch bumps
+
+A tracked `pre-commit` hook increments the patch component on every commit and stages the
+change alongside it. Install it once per clone (`install.sh` does this for you):
+
+```bash
+./scripts/install-hooks.sh
+```
+
+This sets `core.hooksPath` to `scripts/git-hooks`, so the hook is version-controlled
+rather than living in `.git/hooks`.
+
+The bump is skipped automatically when:
+- `VERSION` is already staged — a hand-written `MINOR`/`MAJOR` bump wins
+- the commit is a merge, rebase, cherry-pick, or revert in progress
+- nothing else is staged
+- `VERSION` is not in `MAJOR.MINOR.PATCH` form
+
+To bypass it for a single commit:
+
+```bash
+SKIP_VERSION_BUMP=1 git commit -m "docs: fix typo"
+```
+
+For a minor or major release, edit `VERSION` by hand and stage it with your commit:
+
+```bash
+echo "1.1.0" > VERSION
+git add VERSION
+git commit -m "feat: add new provider"   # stays 1.1.0
 ```
 
 ## 🤝 Contributing
