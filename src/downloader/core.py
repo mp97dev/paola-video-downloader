@@ -96,18 +96,12 @@ class VideoDownloader:
             DownloadError: If download fails
         """
         logger.info(f"Starting download for URL: {url}")
-        
-        # Select provider
-        try:
-            provider = self._select_provider(url)
-        except UnsupportedPlatformError as e:
-            logger.error(str(e))
-            return {
-                'success': False,
-                'error': str(e),
-                'provider': None
-            }
-        
+
+        # Select provider. UnsupportedPlatformError propagates on purpose: it is a
+        # bad-input failure (exit 1), not the retryable download failure that a
+        # {'success': False} result would be reported as.
+        provider = self._select_provider(url)
+
         # Check for duplicates if enabled
         if self.prevent_duplicates and title:
             safe_title = sanitize_filename(title)

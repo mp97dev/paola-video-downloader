@@ -104,17 +104,19 @@ class TestVideoDownloader(unittest.TestCase):
         self.assertTrue(os.path.exists(result['filepath']))
     
     def test_download_unsupported_url(self):
-        """Test download with unsupported URL."""
+        """An unsupported URL raises rather than returning a failure result.
+
+        Callers map a failure *result* to the retryable exit code; an unsupported
+        URL is bad input, so it has to stay distinguishable.
+        """
         mock_provider = MockProvider(supported_urls=['example.com'])
         downloader = VideoDownloader(
             output_dir=self.temp_dir,
             providers=[mock_provider]
         )
-        
-        result = downloader.download('https://unsupported.com/video', 'test_video')
-        
-        self.assertFalse(result['success'])
-        self.assertIn('error', result)
+
+        with self.assertRaises(UnsupportedPlatformError):
+            downloader.download('https://unsupported.com/video', 'test_video')
     
     def test_list_providers(self):
         """Test listing providers."""

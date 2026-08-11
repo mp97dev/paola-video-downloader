@@ -9,6 +9,7 @@
 # The bump is skipped automatically when:
 #   - VERSION is already staged (you are bumping minor/major by hand)
 #   - the commit is a merge, rebase, or cherry-pick in progress
+#   - the commit is an amend (the version was already bumped for it)
 #   - nothing else is staged
 set -euo pipefail
 
@@ -31,6 +32,16 @@ for marker in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD rebase-merge rebase-apply;
         exit 0
     fi
 done
+
+# `git commit --amend` rewrites a commit that already carries its bump, so
+# bumping again would advance the version twice for one logical change. Git
+# passes no flag to the hook, so read the invoking command line.
+parent_cmd="$(ps -o args= -p "$PPID" 2>/dev/null || true)"
+case " $parent_cmd " in
+    *" --amend"*)
+        exit 0
+        ;;
+esac
 
 # Nothing staged means git will abort the commit anyway — don't create a
 # version-only commit out of thin air.

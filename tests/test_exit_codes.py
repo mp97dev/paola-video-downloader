@@ -57,6 +57,35 @@ class TestExitCodes(unittest.TestCase):
                           side_effect=UnsupportedPlatformError('nope')):
             self.assertEqual(self._run_expecting_exit(), app.EXIT_ERROR)
 
+    def test_unsupported_platform_from_real_core_is_not_retryable(self):
+        # Exercise the path core actually produces: no provider claims the URL.
+        # It must not be flattened into a {'success': False} result, which app.py
+        # would report as the retryable exit 2.
+        from downloader.providers import BaseProvider
+
+        class RefusingProvider(BaseProvider):
+            @property
+            def name(self):
+                return 'refusing'
+
+            def supports(self, url):
+                return False
+
+            def extract_info(self, url):
+                return {}
+
+            def download(self, url, output_path, title=None):
+                raise AssertionError('should never be reached')
+
+        original_init = app.VideoDownloader.__init__
+
+        def only_refusing(self, *args, **kwargs):
+            kwargs['providers'] = [RefusingProvider()]
+            original_init(self, *args, **kwargs)
+
+        with patch.object(app.VideoDownloader, '__init__', only_refusing):
+            self.assertEqual(self._run_expecting_exit(), app.EXIT_ERROR)
+
     def test_duplicate_file_is_not_retryable(self):
         with patch.object(app.VideoDownloader, 'download',
                           side_effect=DuplicateFileError('exists')):

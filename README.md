@@ -36,7 +36,7 @@ Before using this project, ensure you have the following:
 ### System Requirements
 - Python 3.8 or higher
 - Internet connection
-- ffmpeg (recommended for video post-processing)
+- ffmpeg (needed for posts served as separate video and audio streams — see below)
 
 ### Required Credentials
 - **Google Service Account**: A service account JSON file (`auth.json`) with Google Drive API access
@@ -59,7 +59,7 @@ Before using this project, ensure you have the following:
    pip install -r requirements.txt
    ```
 
-3. **Optional: Install ffmpeg**
+3. **Install ffmpeg**
    ```bash
    # Ubuntu/Debian
    sudo apt-get install ffmpeg
@@ -67,6 +67,12 @@ Before using this project, ensure you have the following:
    # macOS
    brew install ffmpeg
    ```
+
+   Some platforms (Instagram in particular) serve certain posts as separate video
+   and audio streams, which have to be merged into one file — that merge is done by
+   ffmpeg. Without it the downloader logs a warning and restricts itself to
+   pre-muxed formats, so those posts will fail. Everything else still works.
+   The GitHub Actions workflow installs ffmpeg on the runner automatically.
 
 ### Alternative: Using the Installation Script
 
@@ -478,8 +484,12 @@ for url in urls:
   2. Locally: `COOKIES_FILE=cookies.txt venv/bin/python3 src/app.py`
   3. In CI: `base64 -w0 cookies.txt` and store the result as the `COOKIES` repository
      secret — the workflow decodes it and sets `COOKIES_FILE` automatically
-- **Note**: The download is *not* retried on this error, since retrying never helps.
-  Cookies expire, so a workflow that suddenly starts failing usually needs a refreshed secret.
+- **Note**: Instagram returns one message for a throttle, a deleted post and a missing
+  login, so the download still gets its three local attempts with backoff — only a refusal
+  that survives all of them is reported as needing cookies (exit `3`), which CI then retries
+  once on a yt-dlp nightly. An unambiguous refusal ("sign in to confirm", "private account")
+  skips the local retries, since those never recover. Cookies expire, so a workflow that
+  suddenly starts failing usually needs a refreshed secret.
 
 **Issue**: Download fails with network error
 - **Solution**:
@@ -575,6 +585,7 @@ rather than living in `.git/hooks`.
 The bump is skipped automatically when:
 - `VERSION` is already staged — a hand-written `MINOR`/`MAJOR` bump wins
 - the commit is a merge, rebase, cherry-pick, or revert in progress
+- the commit is a `--amend` — the version was already bumped for that commit
 - nothing else is staged
 - `VERSION` is not in `MAJOR.MINOR.PATCH` form
 

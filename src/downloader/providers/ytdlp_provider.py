@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Dict, Optional
 import time
@@ -23,11 +24,10 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Fragments of yt-dlp error messages that mean "the platform refused anonymous
-# access" rather than "something went wrong". Retrying these never helps.
+# access" rather than "something went wrong". Retrying these in-process never
+# helps: the run needs cookies.
 _AUTH_ERROR_MARKERS = (
     'login required',
-    'requested content is not available',
-    'rate-limit reached',
     'sign in to confirm',
     'private video',
     'this account is private',
@@ -35,11 +35,43 @@ _AUTH_ERROR_MARKERS = (
     'use --cookies',
 )
 
+# Instagram folds a throttle, a deleted post and a missing login into one message:
+#   "Requested content is not available, rate-limit reached or login required"
+# A throttle is the one failure here that a short wait genuinely fixes, so these
+# get the full backoff loop and only become an auth error once attempts run out.
+_RATE_LIMIT_MARKERS = (
+    'rate-limit reached',
+    'requested content is not available',
+    'http error 429',
+    'too many requests',
+)
+
+
+def _is_rate_limited(message: str) -> bool:
+    """Return True if the error may just be throttling, and is worth retrying."""
+    lowered = message.lower()
+    return any(marker in lowered for marker in _RATE_LIMIT_MARKERS)
+
 
 def _is_auth_error(message: str) -> bool:
-    """Return True if the error message indicates login/rate-limit refusal."""
+    """Return True if the error is a refusal that retrying can never fix."""
+    # A message that also mentions throttling is ambiguous; let the retry loop
+    # settle it rather than demanding cookies on the first attempt.
+    if _is_rate_limited(message):
+        return False
+
     lowered = message.lower()
     return any(marker in lowered for marker in _AUTH_ERROR_MARKERS)
+
+
+def _auth_required_message(url: str, error: Exception) -> str:
+    """Build the operator-facing message for a refusal that needs cookies."""
+    return (
+        f"{url} could not be downloaded anonymously: {error}. "
+        "Export browser cookies in Netscape format and expose them "
+        "via the COOKIES_FILE environment variable (the workflow reads "
+        "the base64-encoded COOKIES repository secret)."
+    )
 
 
 class YtDlpProvider(BaseProvider):
@@ -133,12 +165,15 @@ class YtDlpProvider(BaseProvider):
         if not info:
             return None
 
-        # A playlist-style result wraps the real entries
-        if info.get('_type') == 'playlist' and info.get('entries'):
-            entries = [e for e in info['entries'] if e]
-            if not entries:
-                return None
-            info = entries[0]
+        # Container results wrap the real entries. yt-dlp emits `multi_video` for
+        # multi-part posts (e.g. an Instagram carousel) and handles it exactly like
+        # a playlist — `requested_downloads` only ever lands on the inner entries.
+        if info.get('_type') in ('playlist', 'multi_video'):
+            for entry in info.get('entries') or []:
+                path = YtDlpProvider._resolve_filepath(entry)
+                if path:
+                    return path
+            return None
 
         # `requested_downloads` carries the post-processed path (after merging)
         for download in info.get('requested_downloads') or []:
@@ -147,6 +182,26 @@ class YtDlpProvider(BaseProvider):
                 return path
 
         return info.get('filepath') or info.get('_filename')
+
+    @staticmethod
+    def _format_selector() -> str:
+        """
+        Build the format string, taking local ffmpeg availability into account.
+
+        The video+audio fallbacks have to be merged, and yt-dlp aborts the whole
+        download when it selects a merged format without ffmpeg present — it does
+        not fall through to the next candidate. So only offer them when merging
+        can actually happen.
+        """
+        if shutil.which('ffmpeg'):
+            return 'best[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/best'
+
+        logger.warning(
+            "ffmpeg not found: falling back to pre-muxed formats only. "
+            "DASH-only posts (common on Instagram) may fail to download. "
+            "Install ffmpeg to enable video+audio merging."
+        )
+        return 'best[ext=mp4]/best'
 
     def download(self, url: str, output_path: str = '.', title: Optional[str] = None) -> str:
         """
@@ -176,7 +231,7 @@ class YtDlpProvider(BaseProvider):
         # separate video+audio streams merged locally. Platforms such as Instagram
         # serve DASH-only streams for some posts, where a bare `best` finds nothing.
         ydl_opts = {
-            'format': 'best[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/best',
+            'format': self._format_selector(),
             'outtmpl': output_base + '.%(ext)s',
             'merge_output_format': 'mp4',
             'quiet': False,
@@ -209,8 +264,13 @@ class YtDlpProvider(BaseProvider):
                     logger.info(f"Successfully downloaded to {filepath}")
                     return filepath
 
+                if filepath:
+                    raise DownloadError(
+                        f"Download reported success but the file is missing: {filepath}"
+                    )
                 raise DownloadError(
-                    f"Download reported success but no file was found at {filepath or output_base}.*"
+                    "Download reported success but yt-dlp named no output file "
+                    f"(expected something under {output_base}.*)"
                 )
 
             except DownloadError:
@@ -218,10 +278,7 @@ class YtDlpProvider(BaseProvider):
             except Exception as e:
                 if _is_auth_error(str(e)):
                     raise AuthenticationRequiredError(
-                        f"{url} could not be downloaded anonymously: {e}. "
-                        "Export browser cookies in Netscape format and expose them "
-                        "via the COOKIES_FILE environment variable (the workflow reads "
-                        "the base64-encoded COOKIES repository secret)."
+                        _auth_required_message(url, e)
                     ) from e
 
                 last_error = e
@@ -232,7 +289,15 @@ class YtDlpProvider(BaseProvider):
                     logger.info(f"Retrying in {delay} seconds...")
                     time.sleep(delay)
 
-        # All retries failed
+        # All retries failed. A throttle that survived the whole backoff loop is no
+        # longer plausibly transient — surface it as "needs cookies" so the caller
+        # exits 3 and the operator gets the actionable message.
+        if last_error is not None and _is_rate_limited(str(last_error)):
+            logger.error(f"Still refused after {self.max_retries} attempts: {last_error}")
+            raise AuthenticationRequiredError(
+                _auth_required_message(url, last_error)
+            ) from last_error
+
         error_msg = f"Failed to download after {self.max_retries} attempts: {last_error}"
         logger.error(error_msg)
         raise DownloadError(error_msg)

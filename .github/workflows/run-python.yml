@@ -40,6 +40,14 @@ jobs:
             echo "$COOKIES_B64" | base64 -d > cookies.txt
           fi
 
+      - name: 🎬 Ensure ffmpeg is available
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
+          ffmpeg -version | head -1
+
       - name: ⚙️ Run install
         run: ./install.sh
 
